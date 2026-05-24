@@ -2,7 +2,7 @@
 include 'db.php';
 
 if (!empty($_SESSION['user_id'])) {
-    redirect('index.php');
+    redirect('dashboard.php');
 }
 
 $errors = [];
@@ -57,7 +57,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             session_regenerate_id(true);
             $_SESSION['user_id'] = $pendingUserId;
             unset($_SESSION['pending_2fa_user_id']);
-            redirect('index.php');
+            redirect('dashboard.php');
         }
 
         $errors[] = 'Invalid or expired code.';

@@ -2,15 +2,19 @@
 include 'db.php';
 
 if (!empty($_SESSION['user_id'])) {
-    redirect('index.php');
+    redirect('dashboard.php');
 }
 
+$signupEnabled = false;
 $errors = [];
 $success = false;
 $name = '';
 $email = '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    if (!$signupEnabled) {
+        $errors[] = 'Sign up is currently disabled.';
+    } else {
     $name = trim($_POST['name'] ?? '');
     $email = trim($_POST['email'] ?? '');
     $password = $_POST['password'] ?? '';
@@ -49,6 +53,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $email = '';
         }
     }
+    }
 }
 ?>
 <!DOCTYPE html>
@@ -69,6 +74,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     <p>Register a new inventory user account.</p>
                 </div>
             </div>
+
+            <?php if (!$signupEnabled): ?>
+                <div class="alert alert-error">
+                    <p>Sign up is currently disabled.</p>
+                </div>
+            <?php endif; ?>
 
             <?php if ($success): ?>
                 <div class="alert alert-success">
@@ -102,7 +113,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     <input type="password" name="confirm_password" required>
                 </label>
                 <div class="form-actions">
-                    <button type="submit" class="btn btn-primary">Sign Up</button>
+                    <button type="submit" class="btn btn-primary" <?php echo !$signupEnabled ? 'disabled aria-disabled="true"' : ''; ?>>Sign Up</button>
                 </div>
             </form>
 

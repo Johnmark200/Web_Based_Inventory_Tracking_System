@@ -6,6 +6,7 @@ $errors = [];
 $formData = [
     'name' => '',
     'category_id' => '',
+    'category_name' => '',
     'stock_quantity' => 0,
     'description' => '',
 ];
@@ -27,6 +28,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } else {
             $conn->begin_transaction();
             try {
+                $resolvedCategoryId = resolveCategoryId(
+                    $conn,
+                    (int) $formData['category_id'],
+                    $formData['category_name']
+                );
+                if ($resolvedCategoryId <= 0) {
+                    throw new RuntimeException('Category is required.');
+                }
+
                 $stmt = $conn->prepare(
                     'INSERT INTO products (name, category_id, stock_quantity, description, quantity, price)
                      VALUES (?, ?, ?, ?, 0, 0)'
@@ -34,7 +44,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $stmt->bind_param(
                     'siis',
                     $formData['name'],
-                    $formData['category_id'],
+                    $resolvedCategoryId,
                     $formData['stock_quantity'],
                     $formData['description']
                 );
@@ -60,10 +70,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $history->close();
 
                 $conn->commit();
-                redirect('index.php');
+                redirect('dashboard.php');
             } catch (Throwable $e) {
                 $conn->rollback();
-                throw $e;
+                $errors[] = $e->getMessage() === 'Category is required.'
+                    ? 'Select a category or enter a new one.'
+                    : 'Unable to save the product right now.';
             }
         }
     }
@@ -88,7 +100,7 @@ $categories = $conn->query('SELECT id, name FROM categories ORDER BY name ASC');
                     <h1>Add Product</h1>
                     <p>Save a new inventory item with category, stock level, and optional details.</p>
                 </div>
-                <a href="index.php" class="btn btn-secondary">Back to Dashboard</a>
+                <a href="dashboard.php" class="btn btn-secondary">Back to Dashboard</a>
             </div>
 
             <?php if ($errors): ?>
@@ -105,8 +117,8 @@ $categories = $conn->query('SELECT id, name FROM categories ORDER BY name ASC');
                     <input type="text" name="name" value="<?php echo h($formData['name']); ?>" required maxlength="150">
                 </label>
                 <label>
-                    Category
-                    <select name="category_id" required>
+                    Existing Category
+                    <select name="category_id" data-category-select>
                         <option value="">Select a category</option>
                         <?php while ($category = $categories->fetch_assoc()): ?>
                             <option value="<?php echo (int) $category['id']; ?>" <?php echo (string) $formData['category_id'] === (string) $category['id'] ? 'selected' : ''; ?>>
@@ -115,6 +127,27 @@ $categories = $conn->query('SELECT id, name FROM categories ORDER BY name ASC');
                         <?php endwhile; ?>
                     </select>
                 </label>
+                <label>
+                    Add New Category
+                    <input
+                        type="text"
+                        name="category_name"
+                        list="category-options"
+                        value="<?php echo h($formData['category_name']); ?>"
+                        placeholder="Type an existing or new category"
+                        maxlength="100"
+                        data-category-input
+                    >
+                </label>
+                <datalist id="category-options">
+                    <?php
+                    $categorySuggestions = $conn->query('SELECT name FROM categories ORDER BY name ASC');
+                    while ($categorySuggestion = $categorySuggestions->fetch_assoc()):
+                    ?>
+                        <option value="<?php echo h($categorySuggestion['name']); ?>"></option>
+                    <?php endwhile; ?>
+                </datalist>
+                <p class="field-hint">Choose from the list or type a category name to create it automatically.</p>
                 <label>
                     Stock Quantity
                     <input type="number" name="stock_quantity" value="<?php echo h((string) $formData['stock_quantity']); ?>" required min="0" step="1">

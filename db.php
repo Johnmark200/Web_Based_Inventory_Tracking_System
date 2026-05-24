@@ -327,11 +327,63 @@ function dropForeignKeys(mysqli $conn, string $table): void
     $stmt->close();
 }
 
+function categoryIdByName(mysqli $conn, string $name): int
+{
+    $stmt = $conn->prepare('SELECT id FROM categories WHERE name = ? LIMIT 1');
+    $stmt->bind_param('s', $name);
+    $stmt->execute();
+    $category = $stmt->get_result()->fetch_assoc();
+    $stmt->close();
+
+    return (int) ($category['id'] ?? 0);
+}
+
+function resolveCategoryId(mysqli $conn, int $categoryId, string $categoryName = ''): int
+{
+    $categoryName = trim($categoryName);
+
+    if ($categoryName !== '') {
+        $existingCategoryId = categoryIdByName($conn, $categoryName);
+        if ($existingCategoryId > 0) {
+            return $existingCategoryId;
+        }
+
+        try {
+            $stmt = $conn->prepare('INSERT INTO categories (name) VALUES (?)');
+            $stmt->bind_param('s', $categoryName);
+            $stmt->execute();
+            $newCategoryId = (int) $stmt->insert_id;
+            $stmt->close();
+
+            return $newCategoryId;
+        } catch (mysqli_sql_exception $e) {
+            if ((int) $e->getCode() === 1062) {
+                return categoryIdByName($conn, $categoryName);
+            }
+
+            throw $e;
+        }
+    }
+
+    if ($categoryId <= 0) {
+        return 0;
+    }
+
+    $stmt = $conn->prepare('SELECT id FROM categories WHERE id = ? LIMIT 1');
+    $stmt->bind_param('i', $categoryId);
+    $stmt->execute();
+    $category = $stmt->get_result()->fetch_assoc();
+    $stmt->close();
+
+    return (int) ($category['id'] ?? 0);
+}
+
 function validateProductInput(array $input): array
 {
     $errors = [];
     $name = trim($input['name'] ?? '');
     $categoryId = (int) ($input['category_id'] ?? 0);
+    $categoryName = trim($input['category_name'] ?? '');
     $stockQuantity = filter_var($input['stock_quantity'] ?? null, FILTER_VALIDATE_INT);
     $description = trim($input['description'] ?? '');
 
@@ -339,8 +391,12 @@ function validateProductInput(array $input): array
         $errors[] = 'Product name is required.';
     }
 
-    if ($categoryId <= 0) {
-        $errors[] = 'Category is required.';
+    if ($categoryId <= 0 && $categoryName === '') {
+        $errors[] = 'Select a category or enter a new one.';
+    }
+
+    if ($categoryName !== '' && mb_strlen($categoryName) > 100) {
+        $errors[] = 'Category name must be 100 characters or fewer.';
     }
 
     if ($stockQuantity === false || $stockQuantity < 0) {
@@ -352,6 +408,7 @@ function validateProductInput(array $input): array
         'data' => [
             'name' => $name,
             'category_id' => $categoryId,
+            'category_name' => $categoryName,
             'stock_quantity' => $stockQuantity === false ? 0 : $stockQuantity,
             'description' => $description,
         ],

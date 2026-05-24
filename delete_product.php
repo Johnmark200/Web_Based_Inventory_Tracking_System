@@ -4,7 +4,7 @@ requireLogin();
 
 $productId = filter_input(INPUT_GET, 'id', FILTER_VALIDATE_INT);
 if (!$productId) {
-    redirect('index.php');
+    redirect('dashboard.php');
 }
 
 $productStmt = $conn->prepare('SELECT stock_quantity FROM products WHERE id = ? LIMIT 1');
@@ -40,5 +40,5 @@ if ($product) {
     }
 }
 
-redirect('index.php');
+redirect('dashboard.php');
 ?>

@@ -2,7 +2,7 @@
 include 'db.php';
 
 if (!empty($_SESSION['user_id'])) {
-    redirect('index.php');
+    redirect('dashboard.php');
 }
 
 $errors = [];
@@ -73,7 +73,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             </form>
 
             <div class="auth-links">
-                <a href="register.php">Create account</a>
+               
                 <a href="forgot_password.php">Forgot password?</a>
             </div>
         </section>
